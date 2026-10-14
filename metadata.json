@@ -1,0 +1,11 @@
+{
+  "name": "OMNICARE-JARVIS | Autonomous Emergency & Medicine Co-Pilot",
+  "description": "Autonomous calming multimodal AI co-pilot for panic-free injury first-aid and universal accessible medicine decoding with moving visual directives and real-time clinical tools.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
