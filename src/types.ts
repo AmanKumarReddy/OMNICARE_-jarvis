@@ -59,3 +59,5 @@ export interface PresetCase {
   sampleImageSvg?: string;
   data: OmnicareResponse;
 }
+
+export * from './types/index';

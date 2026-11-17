@@ -1,0 +1,55 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: omnistock-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: omnistock
+      POSTGRES_PASSWORD: omnistock_secret
+      POSTGRES_DB: omnistock_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./backend/migrations/000001_init_schema.up.sql:/docker-entrypoint-initdb.d/01_schema.sql
+      - ./backend/migrations/000002_seed_data.up.sql:/docker-entrypoint-initdb.d/02_seed.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U omnistock -d omnistock_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: omnistock-backend
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      PORT: "8080"
+      APP_ENV: "production"
+      DB_TYPE: "postgres"
+      DATABASE_URL: "postgres://omnistock:omnistock_secret@postgres:5432/omnistock_db?sslmode=disable"
+      JWT_SECRET: "enterprise-production-grade-omnistock-jwt-secret-key-32bytes"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: omnistock-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:
+    driver: local
