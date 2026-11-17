@@ -45,9 +45,10 @@ export const Shell: React.FC<ShellProps> = ({ children }) => {
     const loadNotifs = async () => {
       try {
         const data = await api.getNotifications();
-        setNotifications(data || []);
+        setNotifications(Array.isArray(data) ? data : []);
       } catch (err) {
         console.error('Failed to load notifications:', err);
+        setNotifications([]);
       }
     };
     loadNotifs();
@@ -65,7 +66,7 @@ export const Shell: React.FC<ShellProps> = ({ children }) => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  const unreadCount = notifications.filter((n) => !n.is_read).length;
+  const unreadCount = Array.isArray(notifications) ? notifications.filter((n) => !n.is_read).length : 0;
 
   const handleMarkAllRead = async () => {
     try {
