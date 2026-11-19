@@ -181,6 +181,38 @@ function fallbackHandler<T>(endpoint: string, options: RequestInit): T {
   const [path, queryString] = endpoint.split('?');
   const query = new URLSearchParams(queryString || '');
 
+  // 0. Auth Login
+  if (path === '/auth/login') {
+    let body: any = {};
+    try {
+      body = JSON.parse((options.body as string) || '{}');
+    } catch (e) {}
+    const email = (body.email || 'admin@apexstock.com').toLowerCase();
+
+    const roleMap: Record<string, string> = {
+      'admin@apexstock.com': 'SUPER_ADMIN',
+      'admin.ops@apexstock.com': 'ADMIN',
+      'marcus.vance@apexstock.com': 'INVENTORY_MANAGER',
+      'sarah.chen@apexstock.com': 'WAREHOUSE_MANAGER',
+      'james.wilson@apexstock.com': 'STAFF',
+      'auditor@apexstock.com': 'VIEWER',
+    };
+
+    const userRole = roleMap[email] || 'SUPER_ADMIN';
+    const user: User = {
+      id: `u-${Date.now()}`,
+      org_id: 'a0000000-0000-0000-0000-000000000001',
+      email,
+      first_name: email.split('@')[0].split('.')[0] ? email.split('@')[0].split('.')[0].charAt(0).toUpperCase() + email.split('@')[0].split('.')[0].slice(1) : 'Team',
+      last_name: 'Member',
+      role: userRole as any,
+      status: 'ACTIVE',
+      created_at: new Date().toISOString(),
+    };
+    const token = `jwt_token_${userRole}_${Date.now()}`;
+    return { token, user } as unknown as T;
+  }
+
   // 1. Dashboard
   if (path === '/reports/dashboard') {
     const prods = getStore('products', INITIAL_PRODUCTS);

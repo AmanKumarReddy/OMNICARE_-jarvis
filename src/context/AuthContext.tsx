@@ -1,8 +1,12 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, UserRole } from '../types';
+import { api } from '../services/api';
 
 interface AuthContextType {
   user: User;
+  isAuthenticated: boolean;
+  login: (email: string, password?: string) => Promise<boolean>;
+  logout: () => void;
   switchRole: (role: UserRole) => void;
   canEditProducts: boolean;
   canAdjustStock: boolean;
@@ -86,16 +90,83 @@ const DEFAULT_USERS: Record<UserRole, User> = {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [currentRole, setCurrentRole] = useState<UserRole>('SUPER_ADMIN');
-  const [user, setUser] = useState<User>(DEFAULT_USERS.SUPER_ADMIN);
+  // Check if session exists in localStorage
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
+    return localStorage.getItem('omnistock_authenticated') === 'true' ||
+      !!localStorage.getItem('omnistock_token');
+  });
+
+  const [currentRole, setCurrentRole] = useState<UserRole>(() => {
+    const saved = localStorage.getItem('omnistock_role') as UserRole;
+    return saved && DEFAULT_USERS[saved] ? saved : 'SUPER_ADMIN';
+  });
+
+  const [user, setUser] = useState<User>(() => {
+    const saved = localStorage.getItem('omnistock_role') as UserRole;
+    return saved && DEFAULT_USERS[saved] ? DEFAULT_USERS[saved] : DEFAULT_USERS.SUPER_ADMIN;
+  });
 
   useEffect(() => {
-    setUser(DEFAULT_USERS[currentRole]);
-    localStorage.setItem('omnistock_token', `jwt_token_${DEFAULT_USERS[currentRole].id}`);
-  }, [currentRole]);
+    if (isAuthenticated) {
+      setUser(DEFAULT_USERS[currentRole]);
+      localStorage.setItem('omnistock_role', currentRole);
+      localStorage.setItem('omnistock_token', `jwt_token_${DEFAULT_USERS[currentRole].id}`);
+      localStorage.setItem('omnistock_authenticated', 'true');
+    }
+  }, [currentRole, isAuthenticated]);
+
+  const login = async (email: string, password?: string): Promise<boolean> => {
+    try {
+      const res = await api.login(email, password);
+      const resUser = res?.user;
+      let matchedRole: UserRole = 'SUPER_ADMIN';
+
+      if (resUser?.role && DEFAULT_USERS[resUser.role as UserRole]) {
+        matchedRole = resUser.role as UserRole;
+      } else {
+        const found = Object.values(DEFAULT_USERS).find(
+          (u) => u.email.toLowerCase() === email.toLowerCase()
+        );
+        if (found) matchedRole = found.role;
+      }
+
+      setUser(DEFAULT_USERS[matchedRole]);
+      setCurrentRole(matchedRole);
+      setIsAuthenticated(true);
+
+      localStorage.setItem('omnistock_token', res?.token || `jwt_token_${DEFAULT_USERS[matchedRole].id}`);
+      localStorage.setItem('omnistock_role', matchedRole);
+      localStorage.setItem('omnistock_authenticated', 'true');
+      return true;
+    } catch (err) {
+      // Fallback for demo testing
+      const found = Object.values(DEFAULT_USERS).find(
+        (u) => u.email.toLowerCase() === email.toLowerCase()
+      );
+      if (found) {
+        setUser(found);
+        setCurrentRole(found.role);
+        setIsAuthenticated(true);
+        localStorage.setItem('omnistock_token', `jwt_token_${found.id}`);
+        localStorage.setItem('omnistock_role', found.role);
+        localStorage.setItem('omnistock_authenticated', 'true');
+        return true;
+      }
+      throw err;
+    }
+  };
+
+  const logout = () => {
+    setIsAuthenticated(false);
+    localStorage.removeItem('omnistock_token');
+    localStorage.removeItem('omnistock_authenticated');
+    localStorage.removeItem('omnistock_role');
+  };
 
   const switchRole = (role: UserRole) => {
     setCurrentRole(role);
+    setUser(DEFAULT_USERS[role]);
+    localStorage.setItem('omnistock_role', role);
   };
 
   const isSuper = user.role === 'SUPER_ADMIN';
@@ -108,6 +179,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     <AuthContext.Provider
       value={{
         user,
+        isAuthenticated,
+        login,
+        logout,
         switchRole,
         canEditProducts: isInvMgr,
         canAdjustStock: isWhMgr,

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
   Package,
@@ -37,8 +37,9 @@ export const Shell: React.FC<ShellProps> = ({ children }) => {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [profileOpen, setProfileOpen] = useState(false);
 
-  const { user, switchRole } = useAuth();
+  const { user, switchRole, logout } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
 
   // Load notifications
   useEffect(() => {
@@ -340,12 +341,13 @@ export const Shell: React.FC<ShellProps> = ({ children }) => {
                   <button
                     onClick={() => {
                       setProfileOpen(false);
-                      switchRole('VIEWER');
+                      logout();
+                      navigate('/login');
                     }}
-                    className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-[#B91C1C] hover:bg-rose-50 transition-colors"
+                    className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-[#B91C1C] hover:bg-rose-50 transition-colors cursor-pointer"
                   >
                     <LogOut className="w-3.5 h-3.5 text-[#B91C1C]" />
-                    <span>Reset to Viewer</span>
+                    <span>Sign Out</span>
                   </button>
                 </div>
               )}

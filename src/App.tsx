@@ -1,10 +1,11 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { AuthProvider } from './context/AuthContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import { Shell } from './components/layout/Shell';
 
-// 12 Enterprise Core Pages
+// Enterprise Pages
+import { LoginPage } from './pages/LoginPage';
 import { OverviewPage } from './pages/OverviewPage';
 import { ProductsPage } from './pages/ProductsPage';
 import { InventoryPage } from './pages/InventoryPage';
@@ -28,53 +29,73 @@ const queryClient = new QueryClient({
   },
 });
 
+// Guarded Layout for Authenticated Dashboard Pages
+const ProtectedDashboardLayout: React.FC = () => {
+  const { isAuthenticated } = useAuth();
+  const location = useLocation();
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  return (
+    <Shell>
+      <Routes>
+        {/* 1. Overview */}
+        <Route path="/" element={<OverviewPage />} />
+
+        {/* 2. Products */}
+        <Route path="/products" element={<ProductsPage />} />
+
+        {/* 3. Inventory */}
+        <Route path="/inventory" element={<InventoryPage />} />
+
+        {/* 4. Warehouses */}
+        <Route path="/warehouses" element={<WarehousesPage />} />
+
+        {/* 5. Suppliers */}
+        <Route path="/suppliers" element={<SuppliersPage />} />
+
+        {/* 6. Purchase Orders */}
+        <Route path="/purchase-orders" element={<PurchaseOrdersPage />} />
+
+        {/* 7. Sales Orders */}
+        <Route path="/sales-orders" element={<SalesOrdersPage />} />
+
+        {/* 8. Stock Transfers */}
+        <Route path="/transfers" element={<StockTransfersPage />} />
+
+        {/* 9. Reports & Analytics */}
+        <Route path="/reports" element={<ReportsPage />} />
+
+        {/* 10. User Management */}
+        <Route path="/users" element={<UserManagementPage />} />
+
+        {/* 11. Audit Logs */}
+        <Route path="/audit-logs" element={<AuditLogsPage />} />
+
+        {/* 12. Settings */}
+        <Route path="/settings" element={<SettingsPage />} />
+
+        {/* Fallback */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </Shell>
+  );
+};
+
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <BrowserRouter>
-          <Shell>
-            <Routes>
-              {/* 1. Overview */}
-              <Route path="/" element={<OverviewPage />} />
+          <Routes>
+            {/* Public Login Route */}
+            <Route path="/login" element={<LoginPage />} />
 
-              {/* 2. Products */}
-              <Route path="/products" element={<ProductsPage />} />
-
-              {/* 3. Inventory */}
-              <Route path="/inventory" element={<InventoryPage />} />
-
-              {/* 4. Warehouses */}
-              <Route path="/warehouses" element={<WarehousesPage />} />
-
-              {/* 5. Suppliers */}
-              <Route path="/suppliers" element={<SuppliersPage />} />
-
-              {/* 6. Purchase Orders */}
-              <Route path="/purchase-orders" element={<PurchaseOrdersPage />} />
-
-              {/* 7. Sales Orders */}
-              <Route path="/sales-orders" element={<SalesOrdersPage />} />
-
-              {/* 8. Stock Transfers */}
-              <Route path="/transfers" element={<StockTransfersPage />} />
-
-              {/* 9. Reports & Analytics */}
-              <Route path="/reports" element={<ReportsPage />} />
-
-              {/* 10. User Management */}
-              <Route path="/users" element={<UserManagementPage />} />
-
-              {/* 11. Audit Logs */}
-              <Route path="/audit-logs" element={<AuditLogsPage />} />
-
-              {/* 12. Settings */}
-              <Route path="/settings" element={<SettingsPage />} />
-
-              {/* Fallback */}
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-          </Shell>
+            {/* Protected Workspace Layout */}
+            <Route path="/*" element={<ProtectedDashboardLayout />} />
+          </Routes>
         </BrowserRouter>
       </AuthProvider>
     </QueryClientProvider>
