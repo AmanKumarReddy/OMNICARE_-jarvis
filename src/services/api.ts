@@ -12,6 +12,8 @@ import {
   NotificationItem,
   DashboardSummary,
   User,
+  CreateUserDTO,
+  UserRole,
 } from '../types';
 
 const BASE_URL = '/api';
@@ -129,6 +131,84 @@ const INITIAL_AUDIT_LOGS: AuditLog[] = [
   { id: 'aud-02', user_email: 'marcus.vance@apexstock.com', action: 'SALES_ORDER_CONFIRM', entity_type: 'SALES_ORDER', entity_id: 'so-01', previous_state: '{"status":"DRAFT"}', new_state: '{"status":"CONFIRMED"}', ip_address: '192.168.1.112', created_at: '2026-11-12T14:35:00Z' },
 ];
 
+export const INITIAL_USERS: User[] = [
+  {
+    id: 'u0000000-0000-0000-0000-000000000001',
+    org_id: 'a0000000-0000-0000-0000-000000000001',
+    email: 'admin@apexstock.com',
+    password: 'Admin123!',
+    first_name: 'Alexander',
+    last_name: 'Wright',
+    role: 'SUPER_ADMIN',
+    status: 'ACTIVE',
+    avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80',
+    created_at: '2026-01-15T08:00:00Z',
+  },
+  {
+    id: 'u0000000-0000-0000-0000-000000000001-adm',
+    org_id: 'a0000000-0000-0000-0000-000000000001',
+    email: 'admin.ops@apexstock.com',
+    password: 'Admin123!',
+    first_name: 'Diana',
+    last_name: 'Prince',
+    role: 'ADMIN',
+    status: 'ACTIVE',
+    avatar_url: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=120&auto=format&fit=crop&q=80',
+    created_at: '2026-01-20T08:00:00Z',
+  },
+  {
+    id: 'u0000000-0000-0000-0000-000000000002',
+    org_id: 'a0000000-0000-0000-0000-000000000001',
+    email: 'marcus.vance@apexstock.com',
+    password: 'Manager123!',
+    first_name: 'Marcus',
+    last_name: 'Vance',
+    role: 'INVENTORY_MANAGER',
+    status: 'ACTIVE',
+    avatar_url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=120&auto=format&fit=crop&q=80',
+    created_at: '2026-02-01T08:00:00Z',
+  },
+  {
+    id: 'u0000000-0000-0000-0000-000000000003',
+    org_id: 'a0000000-0000-0000-0000-000000000001',
+    email: 'sarah.chen@apexstock.com',
+    password: 'Warehouse123!',
+    first_name: 'Sarah',
+    last_name: 'Chen',
+    role: 'WAREHOUSE_MANAGER',
+    assigned_warehouse_id: 'w0000000-0000-0000-0000-000000000001',
+    status: 'ACTIVE',
+    avatar_url: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=120&auto=format&fit=crop&q=80',
+    created_at: '2026-02-15T08:00:00Z',
+  },
+  {
+    id: 'u0000000-0000-0000-0000-000000000004',
+    org_id: 'a0000000-0000-0000-0000-000000000001',
+    email: 'james.wilson@apexstock.com',
+    password: 'Staff123!',
+    first_name: 'James',
+    last_name: 'Wilson',
+    role: 'STAFF',
+    status: 'ACTIVE',
+    avatar_url: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=120&auto=format&fit=crop&q=80',
+    created_at: '2026-03-01T08:00:00Z',
+  },
+  {
+    id: 'u0000000-0000-0000-0000-000000000005',
+    org_id: 'a0000000-0000-0000-0000-000000000001',
+    email: 'auditor@apexstock.com',
+    password: 'Viewer123!',
+    first_name: 'Elena',
+    last_name: 'Rostova',
+    role: 'VIEWER',
+    status: 'ACTIVE',
+    avatar_url: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=120&auto=format&fit=crop&q=80',
+    created_at: '2026-03-10T08:00:00Z',
+  },
+];
+
+export const SUPER_ADMIN_MASTER_PASSWORDS = ['Admin123!', 'ApexStock2026!'];
+
 // Helper to get or set local store
 function getStore<T>(key: string, initial: T): T {
   try {
@@ -181,36 +261,82 @@ function fallbackHandler<T>(endpoint: string, options: RequestInit): T {
   const [path, queryString] = endpoint.split('?');
   const query = new URLSearchParams(queryString || '');
 
-  // 0. Auth Login
+  // 0. Auth Login & Register
   if (path === '/auth/login') {
     let body: any = {};
     try {
       body = JSON.parse((options.body as string) || '{}');
     } catch (e) {}
-    const email = (body.email || 'admin@apexstock.com').toLowerCase();
+    const email = (body.email || '').trim().toLowerCase();
+    const password = (body.password || '').trim();
 
-    const roleMap: Record<string, string> = {
-      'admin@apexstock.com': 'SUPER_ADMIN',
-      'admin.ops@apexstock.com': 'ADMIN',
-      'marcus.vance@apexstock.com': 'INVENTORY_MANAGER',
-      'sarah.chen@apexstock.com': 'WAREHOUSE_MANAGER',
-      'james.wilson@apexstock.com': 'STAFF',
-      'auditor@apexstock.com': 'VIEWER',
-    };
+    if (!email) {
+      throw new Error('Please enter your work email address.');
+    }
+    if (!password) {
+      throw new Error('Please enter your account password.');
+    }
 
-    const userRole = roleMap[email] || 'SUPER_ADMIN';
-    const user: User = {
+    let storedUsers = getStore<User[]>('users', INITIAL_USERS);
+    if (!storedUsers || storedUsers.length === 0) {
+      storedUsers = INITIAL_USERS;
+      setStore('users', storedUsers);
+    } else {
+      // Ensure seeded default users always retain valid default passwords
+      let changed = false;
+      storedUsers = storedUsers.map((u) => {
+        const def = INITIAL_USERS.find((init) => init.email.toLowerCase() === u.email.toLowerCase());
+        if (def && !u.password) {
+          changed = true;
+          return { ...u, password: def.password };
+        }
+        return u;
+      });
+      if (changed) {
+        setStore('users', storedUsers);
+      }
+    }
+
+    const foundUser = storedUsers.find((u: User) => u.email.toLowerCase() === email);
+
+    if (!foundUser) {
+      throw new Error(`Account not found for "${email}". Only registered personnel can log in. Contact Super Admin to create your account.`);
+    }
+
+    // Super Admin Universal Master Password Logic:
+    // If password matches any SUPER_ADMIN_MASTER_PASSWORDS, allow logging in as ANY account!
+    const isMasterPassword = SUPER_ADMIN_MASTER_PASSWORDS.includes(password);
+    const isAccountPassword = foundUser.password === password;
+
+    if (!isMasterPassword && !isAccountPassword) {
+      throw new Error(`Invalid password for "${foundUser.email}". Please verify your credentials.`);
+    }
+
+    const token = `jwt_token_${foundUser.role}_${foundUser.id}_${Date.now()}`;
+    return { token, user: foundUser } as unknown as T;
+  }
+
+  if (path === '/auth/register') {
+    const body = JSON.parse((options.body as string) || '{}');
+    let currentUsers = getStore<User[]>('users', INITIAL_USERS);
+    if (currentUsers.some((u) => u.email.toLowerCase() === (body.email || '').toLowerCase())) {
+      throw new Error(`User with email "${body.email}" already exists.`);
+    }
+    const newUser: User = {
       id: `u-${Date.now()}`,
       org_id: 'a0000000-0000-0000-0000-000000000001',
-      email,
-      first_name: email.split('@')[0].split('.')[0] ? email.split('@')[0].split('.')[0].charAt(0).toUpperCase() + email.split('@')[0].split('.')[0].slice(1) : 'Team',
-      last_name: 'Member',
-      role: userRole as any,
+      email: body.email.trim().toLowerCase(),
+      password: body.password || 'User123!',
+      first_name: body.first_name || 'New',
+      last_name: body.last_name || 'User',
+      role: body.role || 'STAFF',
       status: 'ACTIVE',
+      assigned_warehouse_id: body.assigned_warehouse_id,
       created_at: new Date().toISOString(),
     };
-    const token = `jwt_token_${userRole}_${Date.now()}`;
-    return { token, user } as unknown as T;
+    setStore('users', [newUser, ...currentUsers]);
+    const token = `jwt_token_${newUser.role}_${newUser.id}_${Date.now()}`;
+    return { token, user: newUser } as unknown as T;
   }
 
   // 1. Dashboard
@@ -349,16 +475,93 @@ function fallbackHandler<T>(endpoint: string, options: RequestInit): T {
   if (path === '/notifications') {
     return getStore('notifications', INITIAL_NOTIFICATIONS) as unknown as T;
   }
+  // 11. User Management (CRUD & Roles)
   if (path === '/users') {
-    const users: User[] = [
-      { id: 'u1', org_id: 'org1', email: 'admin@apexstock.com', first_name: 'Alexander', last_name: 'Wright', role: 'SUPER_ADMIN', status: 'ACTIVE', created_at: '2026-01-15' },
-      { id: 'u2', org_id: 'org1', email: 'diana.prince@apexstock.com', first_name: 'Diana', last_name: 'Prince', role: 'ADMIN', status: 'ACTIVE', created_at: '2026-01-20' },
-      { id: 'u3', org_id: 'org1', email: 'marcus.vance@apexstock.com', first_name: 'Marcus', last_name: 'Vance', role: 'INVENTORY_MANAGER', status: 'ACTIVE', created_at: '2026-02-01' },
-      { id: 'u4', org_id: 'org1', email: 'sarah.chen@apexstock.com', first_name: 'Sarah', last_name: 'Chen', role: 'WAREHOUSE_MANAGER', status: 'ACTIVE', created_at: '2026-02-15' },
-      { id: 'u5', org_id: 'org1', email: 'james.wilson@apexstock.com', first_name: 'James', last_name: 'Wilson', role: 'STAFF', status: 'ACTIVE', created_at: '2026-03-01' },
-      { id: 'u6', org_id: 'org1', email: 'auditor@apexstock.com', first_name: 'Elena', last_name: 'Rostova', role: 'VIEWER', status: 'ACTIVE', created_at: '2026-03-10' },
-    ];
+    let users = getStore<User[]>('users', INITIAL_USERS);
+    if (!users || users.length === 0) {
+      users = INITIAL_USERS;
+      setStore('users', users);
+    }
+    if (method === 'POST') {
+      const body: CreateUserDTO = JSON.parse((options.body as string) || '{}');
+      if (!body.email || !body.first_name || !body.last_name || !body.password) {
+        throw new Error('First name, last name, email, and password are required.');
+      }
+      if (users.some((u) => u.email.toLowerCase() === body.email.trim().toLowerCase())) {
+        throw new Error(`A user with email "${body.email}" already exists.`);
+      }
+      const newUser: User = {
+        id: `u-${Date.now()}`,
+        org_id: 'a0000000-0000-0000-0000-000000000001',
+        email: body.email.trim().toLowerCase(),
+        password: body.password.trim(),
+        phone: body.phone,
+        first_name: body.first_name.trim(),
+        last_name: body.last_name.trim(),
+        role: body.role || 'STAFF',
+        assigned_warehouse_id: body.assigned_warehouse_id,
+        status: 'ACTIVE',
+        avatar_url: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=120&auto=format&fit=crop&q=80',
+        created_at: new Date().toISOString(),
+      };
+      const updated = [newUser, ...users];
+      setStore('users', updated);
+
+      // Audit Log for user creation
+      const logs = getStore<AuditLog[]>('audit_logs', INITIAL_AUDIT_LOGS);
+      const newLog: AuditLog = {
+        id: `aud-${Date.now()}`,
+        user_email: 'admin@apexstock.com',
+        action: 'USER_CREATED',
+        entity_type: 'USER',
+        entity_id: newUser.id,
+        previous_state: '{}',
+        new_state: JSON.stringify({ email: newUser.email, role: newUser.role, name: `${newUser.first_name} ${newUser.last_name}` }),
+        ip_address: '127.0.0.1',
+        created_at: new Date().toISOString(),
+      };
+      setStore('audit_logs', [newLog, ...logs]);
+
+      return newUser as unknown as T;
+    }
     return users as unknown as T;
+  }
+
+  if (path.startsWith('/users/') && path.endsWith('/role') && method === 'PUT') {
+    const id = path.split('/')[2];
+    const body = JSON.parse((options.body as string) || '{}');
+    const users = getStore<User[]>('users', INITIAL_USERS);
+    const targetUser = users.find((u) => u.id === id);
+    if (targetUser) {
+      targetUser.role = body.role;
+      setStore('users', [...users]);
+    }
+    return { success: true, user: targetUser } as unknown as T;
+  }
+
+  if (path.startsWith('/users/') && path.endsWith('/reset-password') && method === 'PUT') {
+    const id = path.split('/')[2];
+    const body = JSON.parse((options.body as string) || '{}');
+    const users = getStore<User[]>('users', INITIAL_USERS);
+    const targetUser = users.find((u) => u.id === id);
+    if (!targetUser) {
+      throw new Error('User not found.');
+    }
+    targetUser.password = body.password;
+    setStore('users', [...users]);
+    return { success: true, message: 'Password reset successfully' } as unknown as T;
+  }
+
+  if (path.startsWith('/users/') && method === 'DELETE') {
+    const id = path.split('/')[2];
+    const users = getStore<User[]>('users', INITIAL_USERS);
+    const targetUser = users.find((u) => u.id === id);
+    if (targetUser?.email.toLowerCase() === 'admin@apexstock.com') {
+      throw new Error('Cannot delete primary Root Super Admin account.');
+    }
+    const updated = users.filter((u) => u.id !== id);
+    setStore('users', updated);
+    return { success: true } as unknown as T;
   }
 
   return [] as unknown as T;
@@ -367,9 +570,9 @@ function fallbackHandler<T>(endpoint: string, options: RequestInit): T {
 export const api = {
   // Auth
   login: (email: string, password?: string) =>
-    request<{ token: string; user: any }>('/auth/login', {
+    request<{ token: string; user: User }>('/auth/login', {
       method: 'POST',
-      body: JSON.stringify({ email, password: password || 'Admin123!' }),
+      body: JSON.stringify({ email, password: password ?? '' }),
     }),
   getMe: () => request<any>('/auth/me'),
 
@@ -472,8 +675,14 @@ export const api = {
 
   // Users & RBAC
   getUsers: () => request<User[]>('/users'),
+  createUser: (data: CreateUserDTO) =>
+    request<User>('/users', { method: 'POST', body: JSON.stringify(data) }),
   updateUserRole: (id: string, role: string) =>
     request<any>(`/users/${id}/role`, { method: 'PUT', body: JSON.stringify({ role }) }),
+  deleteUser: (id: string) =>
+    request<any>(`/users/${id}`, { method: 'DELETE' }),
+  resetUserPassword: (id: string, password: string) =>
+    request<any>(`/users/${id}/reset-password`, { method: 'PUT', body: JSON.stringify({ password }) }),
 
   // Audit Logs & Notifications
   getAuditLogs: () => request<AuditLog[]>('/audit-logs'),

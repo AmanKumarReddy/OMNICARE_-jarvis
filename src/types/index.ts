@@ -10,6 +10,8 @@ export interface User {
   id: string;
   org_id: string;
   email: string;
+  password?: string;
+  phone?: string;
   first_name: string;
   last_name: string;
   role: UserRole;
@@ -17,6 +19,16 @@ export interface User {
   assigned_warehouse_id?: string;
   avatar_url?: string;
   created_at: string;
+}
+
+export interface CreateUserDTO {
+  first_name: string;
+  last_name: string;
+  email: string;
+  password: string;
+  role: UserRole;
+  assigned_warehouse_id?: string;
+  phone?: string;
 }
 
 export interface Category {

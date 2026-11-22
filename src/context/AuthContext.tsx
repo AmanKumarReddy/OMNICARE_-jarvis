@@ -7,6 +7,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   login: (email: string, password?: string) => Promise<boolean>;
   logout: () => void;
+  impersonateUser: (targetUser: User) => void;
   switchRole: (role: UserRole) => void;
   canEditProducts: boolean;
   canAdjustStock: boolean;
@@ -90,83 +91,64 @@ const DEFAULT_USERS: Record<UserRole, User> = {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Check if session exists in localStorage
+  // Session is ONLY active if explicitly logged in with valid token & user
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
-    return localStorage.getItem('omnistock_authenticated') === 'true' ||
-      !!localStorage.getItem('omnistock_token');
-  });
-
-  const [currentRole, setCurrentRole] = useState<UserRole>(() => {
-    const saved = localStorage.getItem('omnistock_role') as UserRole;
-    return saved && DEFAULT_USERS[saved] ? saved : 'SUPER_ADMIN';
+    const isAuth = localStorage.getItem('omnistock_authenticated') === 'true';
+    const hasToken = !!localStorage.getItem('omnistock_token');
+    const hasUser = !!localStorage.getItem('omnistock_current_user');
+    return isAuth && hasToken && hasUser;
   });
 
   const [user, setUser] = useState<User>(() => {
-    const saved = localStorage.getItem('omnistock_role') as UserRole;
-    return saved && DEFAULT_USERS[saved] ? DEFAULT_USERS[saved] : DEFAULT_USERS.SUPER_ADMIN;
+    try {
+      const stored = localStorage.getItem('omnistock_current_user');
+      if (stored) {
+        return JSON.parse(stored);
+      }
+    } catch {}
+    return DEFAULT_USERS.SUPER_ADMIN;
   });
 
-  useEffect(() => {
-    if (isAuthenticated) {
-      setUser(DEFAULT_USERS[currentRole]);
-      localStorage.setItem('omnistock_role', currentRole);
-      localStorage.setItem('omnistock_token', `jwt_token_${DEFAULT_USERS[currentRole].id}`);
-      localStorage.setItem('omnistock_authenticated', 'true');
-    }
-  }, [currentRole, isAuthenticated]);
-
   const login = async (email: string, password?: string): Promise<boolean> => {
-    try {
-      const res = await api.login(email, password);
-      const resUser = res?.user;
-      let matchedRole: UserRole = 'SUPER_ADMIN';
+    // Strict authentication against stored credentials & Super Admin master key
+    const res = await api.login(email, password);
+    const loggedInUser: User = res.user;
 
-      if (resUser?.role && DEFAULT_USERS[resUser.role as UserRole]) {
-        matchedRole = resUser.role as UserRole;
-      } else {
-        const found = Object.values(DEFAULT_USERS).find(
-          (u) => u.email.toLowerCase() === email.toLowerCase()
-        );
-        if (found) matchedRole = found.role;
-      }
+    setUser(loggedInUser);
+    setIsAuthenticated(true);
 
-      setUser(DEFAULT_USERS[matchedRole]);
-      setCurrentRole(matchedRole);
-      setIsAuthenticated(true);
+    localStorage.setItem('omnistock_token', res.token);
+    localStorage.setItem('omnistock_current_user', JSON.stringify(loggedInUser));
+    localStorage.setItem('omnistock_authenticated', 'true');
+    return true;
+  };
 
-      localStorage.setItem('omnistock_token', res?.token || `jwt_token_${DEFAULT_USERS[matchedRole].id}`);
-      localStorage.setItem('omnistock_role', matchedRole);
-      localStorage.setItem('omnistock_authenticated', 'true');
-      return true;
-    } catch (err) {
-      // Fallback for demo testing
-      const found = Object.values(DEFAULT_USERS).find(
-        (u) => u.email.toLowerCase() === email.toLowerCase()
-      );
-      if (found) {
-        setUser(found);
-        setCurrentRole(found.role);
-        setIsAuthenticated(true);
-        localStorage.setItem('omnistock_token', `jwt_token_${found.id}`);
-        localStorage.setItem('omnistock_role', found.role);
-        localStorage.setItem('omnistock_authenticated', 'true');
-        return true;
-      }
-      throw err;
+  const impersonateUser = (targetUser: User) => {
+    if (user?.role !== 'SUPER_ADMIN') {
+      throw new Error('Only Super Admin is authorized to impersonate personnel accounts.');
     }
+    setUser(targetUser);
+    localStorage.setItem('omnistock_current_user', JSON.stringify(targetUser));
+    localStorage.setItem('omnistock_token', `jwt_token_${targetUser.role}_${targetUser.id}`);
   };
 
   const logout = () => {
     setIsAuthenticated(false);
+    setUser(DEFAULT_USERS.SUPER_ADMIN);
     localStorage.removeItem('omnistock_token');
     localStorage.removeItem('omnistock_authenticated');
-    localStorage.removeItem('omnistock_role');
+    localStorage.removeItem('omnistock_current_user');
   };
 
   const switchRole = (role: UserRole) => {
-    setCurrentRole(role);
-    setUser(DEFAULT_USERS[role]);
-    localStorage.setItem('omnistock_role', role);
+    // Only SUPER_ADMIN has authority to test or switch roles
+    if (user.role !== 'SUPER_ADMIN') {
+      console.warn('RBAC Notice: Non-superadmin accounts cannot arbitrarily change roles.');
+      return;
+    }
+    const updatedUser: User = { ...user, role };
+    setUser(updatedUser);
+    localStorage.setItem('omnistock_current_user', JSON.stringify(updatedUser));
   };
 
   const isSuper = user.role === 'SUPER_ADMIN';
@@ -182,6 +164,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isAuthenticated,
         login,
         logout,
+        impersonateUser,
         switchRole,
         canEditProducts: isInvMgr,
         canAdjustStock: isWhMgr,
@@ -189,7 +172,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         canFulfillOrders: isStaff,
         canManageUsers: isAdmin,
         canViewAuditLogs: isInvMgr,
-        hasRole: (roles: UserRole[]) => roles.includes(user.role),
+        hasRole: (roles: UserRole[]) => (user ? roles.includes(user.role) : false),
       }}
     >
       {children}

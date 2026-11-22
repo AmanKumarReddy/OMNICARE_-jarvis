@@ -214,22 +214,33 @@ export const Shell: React.FC<ShellProps> = ({ children }) => {
               </kbd>
             </button>
 
-            {/* Quick Demo Role Switcher */}
+            {/* Verified Account Role Badge */}
             <div className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-[#E6E8E2] bg-[#F7F7F4]">
               <span className="text-[11px] text-[#7A827C] font-medium">Role:</span>
-              <select
-                value={user.role}
-                onChange={(e) => switchRole(e.target.value as UserRole)}
-                className="bg-transparent text-xs font-semibold text-[#202923] focus:outline-none cursor-pointer"
-                title="Switch active role to test RBAC permissions"
-              >
-                <option value="SUPER_ADMIN">Super Admin</option>
-                <option value="ADMIN">Admin</option>
-                <option value="INVENTORY_MANAGER">Inventory Manager</option>
-                <option value="WAREHOUSE_MANAGER">Warehouse Manager</option>
-                <option value="STAFF">Staff</option>
-                <option value="VIEWER">Viewer</option>
-              </select>
+              {user.role === 'SUPER_ADMIN' ? (
+                <div className="flex items-center gap-1.5">
+                  <select
+                    value={user.role}
+                    onChange={(e) => switchRole(e.target.value as UserRole)}
+                    className="bg-transparent text-xs font-semibold text-[#202923] focus:outline-none cursor-pointer"
+                    title="Super Admin Role Switcher"
+                  >
+                    <option value="SUPER_ADMIN">Super Admin (Root)</option>
+                    <option value="ADMIN">Admin</option>
+                    <option value="INVENTORY_MANAGER">Inventory Manager</option>
+                    <option value="WAREHOUSE_MANAGER">Warehouse Manager</option>
+                    <option value="STAFF">Staff</option>
+                    <option value="VIEWER">Viewer</option>
+                  </select>
+                  <span className="text-[9px] font-mono px-1 py-0.2 rounded bg-stone-900 text-white font-bold">
+                    ROOT
+                  </span>
+                </div>
+              ) : (
+                <span className="text-xs font-semibold text-[#202923]">
+                  {user.role.replace(/_/g, ' ')}
+                </span>
+              )}
             </div>
 
             {/* Notifications Menu */}

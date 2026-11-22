@@ -23,6 +23,7 @@ interface DemoAccount {
   title: string;
   name: string;
   email: string;
+  password: string;
   badge: string;
   description: string;
 }
@@ -33,15 +34,26 @@ const DEMO_ACCOUNTS: DemoAccount[] = [
     title: 'Super Admin',
     name: 'Alexander Wright',
     email: 'admin@apexstock.com',
-    badge: 'Root Access',
-    description: 'Full multi-warehouse control, user roles & audit compliance',
+    password: 'Admin123!',
+    badge: 'Root / Master Access',
+    description: 'Full multi-warehouse control, user roles & personnel administration',
+  },
+  {
+    role: 'ADMIN',
+    title: 'System Admin',
+    name: 'Diana Prince',
+    email: 'admin.ops@apexstock.com',
+    password: 'Admin123!',
+    badge: 'Operations Admin',
+    description: 'Personnel access control, facility management & auditing',
   },
   {
     role: 'INVENTORY_MANAGER',
     title: 'Inventory Manager',
     name: 'Marcus Vance',
     email: 'marcus.vance@apexstock.com',
-    badge: 'Procurement',
+    password: 'Manager123!',
+    badge: 'Procurement & Stock',
     description: 'Master catalog, low-stock reorder thresholds & PO approvals',
   },
   {
@@ -49,15 +61,17 @@ const DEMO_ACCOUNTS: DemoAccount[] = [
     title: 'Warehouse Manager',
     name: 'Sarah Chen',
     email: 'sarah.chen@apexstock.com',
-    badge: 'Operations',
-    description: 'Chicago hub stock adjustments, cycle counts & transfer dispatches',
+    password: 'Warehouse123!',
+    badge: 'Chicago Logistics',
+    description: 'Cycle counts, dock receipts, inter-facility transfer dispatches',
   },
   {
     role: 'STAFF',
     title: 'Warehouse Staff',
     name: 'James Wilson',
     email: 'james.wilson@apexstock.com',
-    badge: 'Fulfillment',
+    password: 'Staff123!',
+    badge: 'Dock Fulfillment',
     description: 'Inbound dock goods receipt, picking, packing & sales shipments',
   },
   {
@@ -65,7 +79,8 @@ const DEMO_ACCOUNTS: DemoAccount[] = [
     title: 'Financial Auditor',
     name: 'Elena Rostova',
     email: 'auditor@apexstock.com',
-    badge: 'Audit & FIFO',
+    password: 'Viewer123!',
+    badge: 'Audit & FIFO Ledger',
     description: 'Read-only asset valuation, stock movement ledger & compliance inspection',
   },
 ];
@@ -108,15 +123,15 @@ export const LoginPage: React.FC = () => {
 
   const handleSelectDemo = async (account: DemoAccount) => {
     setEmail(account.email);
-    setPassword('ApexStock2026!');
+    setPassword(account.password);
     setError(null);
     setIsLoading(true);
 
     try {
-      await login(account.email, 'ApexStock2026!');
+      await login(account.email, account.password);
       navigate('/', { replace: true });
     } catch (err: any) {
-      setError(err?.message || 'Failed to sign in with demo account.');
+      setError(err?.message || 'Failed to sign in with account credentials.');
     } finally {
       setIsLoading(false);
     }
@@ -328,13 +343,15 @@ export const LoginPage: React.FC = () => {
 
               {/* One-Click Demo Role Cards */}
               <div className="space-y-2">
-                <p className="text-[11px] text-[#7A827C] mb-2 font-medium">
-                  Instant Access for Evaluators & Team Testing:
-                </p>
+                <div className="flex items-center justify-between">
+                  <p className="text-[11px] text-[#7A827C] font-medium">
+                    Pre-configured Personnel Accounts (Click to test credentials):
+                  </p>
+                </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {DEMO_ACCOUNTS.map((acc) => (
                     <button
-                      key={acc.role}
+                      key={acc.role + acc.email}
                       type="button"
                       onClick={() => handleSelectDemo(acc)}
                       disabled={isLoading}
@@ -349,8 +366,17 @@ export const LoginPage: React.FC = () => {
                         </span>
                       </div>
                       <div className="text-[11px] text-[#7A827C] truncate mt-0.5">{acc.email}</div>
+                      <div className="text-[10px] text-[#527A62] font-mono mt-1 flex items-center justify-between">
+                        <span>Key: {acc.password}</span>
+                        <span className="text-[#8A948C]">{acc.name.split(' ')[0]}</span>
+                      </div>
                     </button>
                   ))}
+                </div>
+
+                {/* Master Password Notice */}
+                <div className="mt-3 p-2.5 rounded-xl bg-[#FAFBF9] border border-[#E6E8E2] text-[11px] text-[#525A54] leading-relaxed">
+                  <span className="font-semibold text-[#202923]">Universal Master Key:</span> Super Admin (Alexander Wright) can log in to <em>any</em> registered user account by entering their email address and using the master key (<code className="font-mono bg-[#EAECE6] px-1 py-0.5 rounded text-[#2E5A44] font-bold">Admin123!</code>).
                 </div>
               </div>
             </div>
